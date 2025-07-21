@@ -18,39 +18,58 @@ public class MasterThread extends Thread {
         this.socket = socket;
 
         this.numbers = new ArrayList<>();
-        numbers.add(Integer.parseInt(number));
+        int initialNumber = Integer.parseInt(number);
+        numbers.add(initialNumber);
+        Log.log(prefix, "Initial number: " + initialNumber);
     }
 
     @Override
     public void run() {
         byte[] buffer = new byte[1024];
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-        while(DAS.isRunning) {
+
+        while(true) {
             try {
                 Log.log(prefix, "Waiting for message...");
-                socket.setSoTimeout(10000);
                 socket.receive(packet);
+
                 String message = new String(packet.getData(), 0, packet.getLength());
+                Log.log(prefix, "Message received: " + message);
 
                 if(message.equals("0")) {
-                    String average = Utils.calculateAverage(numbers);
-                    Log.log(prefix, "Average of received messages: " + average);
-                    sendBroadcast(average);
+                    double average = calculateAverage(numbers);
+                    String averageStr = String.valueOf(average);
+                    Log.log(prefix, "Calculated average: " + averageStr);
+                    sendBroadcast(averageStr);
                 } else if(message.equals("-1")) {
-                    Log.log(prefix, "Message received: " + message);
+                    Log.log(prefix, "Terminating.");
                     sendBroadcast(message);
-                    socket.close();
-                    Log.log(prefix, "UDP socket closed.");
                     break;
                 } else {
-                    Log.log(prefix, "Message received: " + message);
-                    numbers.add(Integer.parseInt(message));
+                    try {
+                        numbers.add(Integer.parseInt(message));
+                    } catch (NumberFormatException e) {
+                        Log.log(prefix, "Received invalid number: " + message);
+                    }
                 }
             } catch (IOException e) {
-                Log.log(prefix, "MASTER failed on receiving message from SLAVE." + e.getMessage());
+                Log.log(prefix, "Error receiving message: " + e.getMessage());
                 break;
             }
         }
+    }
+
+    private double calculateAverage(List<Integer> numbers) {
+        double sum = 0;
+        int count = 0;
+
+        for(Integer number : numbers) {
+            if(number != 0) {
+                sum += number;
+                count++;
+            }
+        }
+        return count > 0 ? sum / count : 0;
     }
 
     private void sendBroadcast(String message) {
@@ -63,7 +82,7 @@ public class MasterThread extends Thread {
             Log.log(prefix, "Sent broadcast with message " + message + ".");
             socket.setBroadcast(false);
         } catch (IOException e) {
-            Log.log(prefix, "MASTER failed on sending broadcast message." + e.getMessage());
+            Log.log(prefix, "Error sending broadcast: " + e.getMessage());
         }
     }
 }

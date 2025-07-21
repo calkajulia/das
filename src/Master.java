@@ -14,14 +14,19 @@ public class Master {
     }
 
     public void startMaster() {
-        try {
-            DatagramSocket socket = new DatagramSocket(port);
+        try(DatagramSocket socket = new DatagramSocket(port)) {
             Log.log(prefix, "UDP socket started on port " + port + ".");
 
             MasterThread receiver = new MasterThread(port, number, socket);
             receiver.start();
+            receiver.join();
         } catch (SocketException e) {
-            Log.log(prefix, "Program failed on starting MASTER." + e.getMessage());
+            Log.log(prefix, "Error creating UDP socket: " + e.getMessage());
+            System.exit(1);
+        } catch (InterruptedException e) {
+            Log.log(prefix, "Master thread interrupted: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
+        Log.log(prefix, "Terminated successfully. UDP socket closed.");
     }
 }
